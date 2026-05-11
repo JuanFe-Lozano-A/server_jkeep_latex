@@ -1,31 +1,33 @@
-# Project JKeep: Professional Debian NAS
+# 🏰 Project JKeep: The Frankenstein NAS
 
-A comprehensive implementation and documentation of a headless server infrastructure built on repurposed legacy hardware (Asus X441U).
+What do you do with a dusty Asus X441U laptop that Windows 10 has basically given up on? You wipe it, call it a "Slave," and turn it into an enterprise-grade private cloud. 
 
-## 🚀 Core Stack
-*   **OS:** Debian 13 (Trixie) - Headless / GUI Neutralized
-*   **Storage:** ZFS Pool (`tank`) with LZ4 Compression & Sanoid Snapshot Policies
-*   **Orchestration:** Docker Engine & Docker Compose
-*   **Services:** PostgreSQL (Database) & Jellyfin (Media)
-*   **Networking:** Tailscale (Zero Trust / WireGuard Mesh VPN)
+This repo documents the technical resurrection of my lab server—from fighting ZFS partition errors to streaming family videos across Pereira via Tailscale.
 
-## 📁 Repository Structure
-*   **`/docs`**: Final LaTeX technical report ([PDF](docs/jkeep_final_report.pdf) & [Source](docs/jkeep_final_report.tex)).
-*   **`/scripts`**: Shell scripts for ZFS initialization, Docker installation, and power optimization.
-*   **`/docker`**: Orchestration manifests (`docker-compose.yml`) for the application layer.
-*   **`/resources`**: Hardware analysis and archival project materials.
-*   **`/configs`**: System configuration backups.
+![Hardware Genesis](resources/IMG_7808.jpg)
+*The Asus X441U in its final headless form. No GUI, no bloat, just pure Debian power.*
 
-## 📄 Documentation
-The project includes a 20+ page technical case study detailing every design decision—from ZFS ARC tuning and "Self-Healing" storage theory to Zero Trust networking strategy. 
+## 🧠 The "Overkill" Stack
+Most people just buy a Synology. I chose suffering (and learning):
+*   **OS:** **Debian 13 (Trixie)** — stripped down to the bone. If it has a cursor, it's taking up RAM I need for PostgreSQL.
+*   **Storage:** **ZFS (Pool: `tank`)** — because bit-rot is for amateurs. Using `copies=2` because I only have one physical HDD and I'm a paranoid CS student.
+*   **Orchestration:** **Docker** — everything lives in a container. If it breaks, I just kill it and start over.
+*   **Networking:** **Tailscale** — Zero open ports. If you aren't on my Tailnet, you don't exist.
 
-You can view the full report here: [jkeep_final_report.pdf](docs/jkeep_final_report.pdf)
+![Internal View](resources/IMG_7814.JPG)
+*The "Data Plane" and "Operating Plane" co-existing in mechanical harmony.*
 
-## 🛠️ Management Commands
-Custom Zsh aliases used for remote management from macOS:
-- `wake-server`: Wake-on-LAN trigger.
-- `open-server`: Passwordless SSH access via Tailscale.
-- `sleep-server`: Remote graceful shutdown.
+## 📁 What's in the Box?
+*   **[`/docs`](docs/)**: A 20+ page LaTeX report that I spent way too much time formatting. It covers everything from ARC memory tuning to why I hate Windows Update.
+*   **[`/scripts`](scripts/)**: The automation spells I used to summon ZFS and Docker from the void.
+*   **[`/docker`](docker/)**: The `docker-compose.yml` that keeps Jellyfin and Postgres running while I sleep.
+
+## 📺 The Jellyfin Experience
+I'm running **Intel QuickSync** hardware acceleration on this thing. That means my 2016-era i5 handles 1080p transcodes like a champ while I'm out at UTP.
+
+## 📄 Final Report
+If you actually want to read the technical deep-dive (or just see the LaTeX warning boxes for when I almost bricked the disk), check out the [**JKeep Technical Case Study (PDF)**](docs/jkeep_final_report.pdf).
 
 ---
-*Developed by Juanfe Lozano - Universidad Tecnológica de Pereira (UTP)*
+*Built with coffee and frustration by Juanfe Lozano @ UTP*
+
