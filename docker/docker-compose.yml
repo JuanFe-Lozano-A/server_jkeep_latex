@@ -1,0 +1,26 @@
+services:
+  jellyfin:
+    image: jellyfin/jellyfin:latest
+    container_name: jellyfin
+    user: 1000:1000
+    network_mode: 'host'
+    devices:
+      - /dev/dri:/dev/dri # Hardware acceleration
+    volumes:
+      - /home/docker_data/jellyfin/config:/config
+      - /home/docker_data/jellyfin/cache:/cache
+      - /tank/media:/media:ro # Read-only mount from ZFS pool
+    restart: 'unless-stopped'
+
+  postgres:
+    image: postgres:latest
+    container_name: postgres_db
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+      POSTGRES_DB: jkeep_db
+    volumes:
+      - /tank/db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: 'unless-stopped'

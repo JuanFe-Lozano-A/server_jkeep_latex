@@ -1,0 +1,468 @@
+\documentclass[12pt,a4paper,oneside]{book}
+
+% --- Preamble: Enterprise-Grade Styling ---
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+\usepackage{geometry}
+\geometry{
+    a4paper,
+    top=2.5cm,
+    bottom=2.5cm,
+    left=3cm,
+    right=2.5cm,
+    headheight=15pt
+}
+
+\usepackage{xcolor}
+\usepackage{tcolorbox}
+\tcbuselibrary{skins,breakable}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{listings}
+\usepackage{titlesec}
+\usepackage{graphicx}
+\usepackage{mdframed}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{fancyhdr}
+\usepackage{longtable}
+\usepackage{booktabs}
+\usepackage{microtype}
+
+% --- Professional Color Palette ---
+\definecolor{primaryBlue}{HTML}{0D47A1}
+\definecolor{secondaryBlue}{HTML}{1976D2}
+\definecolor{accentOrange}{HTML}{E65100}
+\definecolor{codeBg}{HTML}{F5F5F5}
+\definecolor{warningBg}{HTML}{FFF3E0}
+\definecolor{successGreen}{HTML}{2E7D32}
+
+% --- Custom Environments ---
+\newtcolorbox{techwarning}[1]{
+    colback=warningBg,
+    colframe=accentOrange,
+    fonttitle=\bfseries\color{white},
+    title=Technical Insight \& Warning: #1,
+    enhanced,
+    attach boxed title to top left={yshift=-2mm, xshift=2mm},
+    boxed title style={colback=accentOrange},
+    breakable,
+    arc=2pt
+}
+
+\newtcolorbox{conceptbox}[1]{
+    colback=primaryBlue!5!white,
+    colframe=primaryBlue,
+    fonttitle=\bfseries\color{white},
+    title=Core Concept: #1,
+    enhanced,
+    attach boxed title to top left={yshift=-2mm, xshift=2mm},
+    boxed title style={colback=primaryBlue},
+    breakable,
+    arc=2pt
+}
+
+% --- Code Listing Style ---
+\lstset{
+    backgroundcolor=\color{codeBg},
+    basicstyle=\ttfamily\small\color{black},
+    breakatwhitespace=false,
+    breaklines=true,
+    captionpos=b,
+    commentstyle=\color{gray},
+    frame=leftline,
+    framerule=2pt,
+    rulecolor=\color{primaryBlue},
+    keepspaces=true,
+    keywordstyle=\color{secondaryBlue}\bfseries,
+    language=bash,
+    morekeywords={sudo, apt-get, zpool, zfs, docker, tailscale},
+    numbers=left,
+    numbersep=5pt,
+    numberstyle=\tiny\color{gray},
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    stringstyle=\color{successGreen},
+    tabsize=2
+}
+
+% --- Header and Footer ---
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\textit{Project JKeep}}
+\fancyhead[R]{\thepage}
+\fancyfoot[C]{\small Enterprise-Grade Debian NAS Implementation}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% --- Section Styling ---
+\titleformat{\chapter}[display]
+  {\normalfont\huge\bfseries\color{primaryBlue}}{Chapter \thechapter}{20pt}{\Huge}
+\titleformat{\section}{\normalfont\Large\bfseries\color{secondaryBlue}}{}{0pt}{\thesection \quad}
+
+% --- Front Matter ---
+\title{
+    \vspace{2cm}
+    \Huge \textbf{Project JKeep} \\
+    \vspace{0.5cm}
+    \LARGE \textit{From Legacy Hardware to Enterprise-Grade Private Cloud} \\
+    \vspace{1cm}
+    \large A Technical Case Study on Debian 13 (Trixie), ZFS Integrity, and Container Orchestration \\
+    \vfill
+}
+\author{Juanfe Lozano \\ \small Universidad Tecnológica de Pereira (UTP)}
+\date{February 2026}
+
+\begin{document}
+
+\maketitle
+
+\chapter*{Abstract}
+This report chronicles the transition of a consumer-grade Asus X441U laptop from a Windows 10 environment to a high-availability, headless Debian 13 NAS. The project, titled \textbf{JKeep}, implements industry-standard data integrity through the ZFS filesystem, secure orchestration via Docker, and Zero Trust networking via Tailscale. The following pages detail every technical decision, hardware constraint, and architectural optimization taken to build a professional server infrastructure from legacy hardware.
+
+\tableofcontents
+
+\chapter{Introduction \& Hardware Genesis}
+
+\section{The Philosophy of Project JKeep}
+The modern digital landscape is increasingly dominated by proprietary cloud services (Google Drive, AWS, Dropbox). While convenient, these services introduce risks regarding privacy, data ownership, and subscription fatigue. Project JKeep was conceived as a "Private Cloud" alternative—a server that lives in the physical control of the owner while providing the same "anywhere-access" experience.
+
+\section{Hardware Inventory: The Asus X441U}
+Repurposing old hardware is not merely a cost-saving measure but an exercise in efficient system architecture. The target machine is an \textbf{Asus X441U} laptop, which, while obsolete for modern gaming or heavy video editing, possesses ideal specs for a home NAS:
+
+\begin{itemize}
+    \item \textbf{CPU:} Intel Core i5-6198DU @ 2.30GHz (Dual-core, 4 threads). This is a U-series (Ultra-low voltage) processor with a TDP of only 15W.
+    \item \textbf{RAM:} 8GB DDR4 (Sufficient for basic ZFS caching and Docker containers).
+    \item \textbf{OS Storage:} 1TB ADATA SU630 SSD (The "Operating Plane").
+    \item \textbf{Bulk Storage:} 1TB Toshiba Mechanical HDD (The "Data Plane").
+    \item \textbf{Network:} Integrated 10/100 Ethernet and Atheros QCA9565 Wi-Fi.
+\end{itemize}
+
+\begin{conceptbox}{Laptop vs. Rack Server}
+Why use a laptop as a NAS? 
+1. \textbf{Integrated UPS:} The laptop battery acts as a built-in Uninterruptible Power Supply (UPS). If the power fails, the server can shut down gracefully.
+2. \textbf{Power Efficiency:} Laptops are designed to sip power, unlike enterprise rack servers that can draw 500W+.
+\end{conceptbox}
+
+\section{The "Windows 10" Dilemma}
+The laptop originally ran Windows 10 Home. A core decision was whether to keep Windows and run the server in a VM (Virtual Machine) or wipe it for a Bare Metal Linux install.
+
+\begin{itemize}
+    \item \textbf{The Amateur Path:} Keeping Windows 10 and using WSL2 or a VM. This leads to "Update Hell," high RAM overhead, and telemetry-related reboots.
+    \item \textbf{The Professional Path:} Bare Metal Debian. This eliminates all bloatware and provides the OS with direct access to the storage hardware.
+\end{itemize}
+
+\begin{techwarning}{Windows 10 Restoration}
+For those worried about losing their license: modern Windows licenses are tied to the motherboard's Hardware ID. You can wipe the drive, install Debian, and later reinstall Windows 10—it will activate automatically as soon as it hits the internet.
+\end{techwarning}
+
+\chapter{Infrastructure Strategy}
+
+\section{Operating System Selection: Why Debian?}
+In the world of servers, stability is the only metric that matters. Debian was chosen over Ubuntu or CentOS for several reasons:
+\begin{enumerate}
+    \item \textbf{Minimalism:} The "NetInst" allows for a headless install with zero GUI overhead.
+    \item \textbf{The "Gold Standard":} Most enterprise Docker images are based on Debian.
+    \item \textbf{Longevity:} Debian "Stable" releases are supported for years, making it a "set and forget" system.
+\end{enumerate}
+
+\section{Power Consumption \& Economic Analysis}
+As a professional project, JKeep includes a rigorous analysis of electricity costs. Using the Intel RAPL (Running Average Power Limit) sensors and local energy rates in Colombia, we calculated the cost of 24/7 operation.
+
+\begin{itemize}
+    \item \textbf{Idle Consumption:} ~8-12 Watts.
+    \item \textbf{Active Load (Transcoding):} ~25-32 Watts.
+    \item \textbf{Cost per kWh:} 213 COP.
+\end{itemize}
+
+\begin{table}[h]
+\centering
+\caption{Projected Monthly Energy Cost (Colombia)}
+\begin{tabular}{@{}llll@{}}
+\toprule
+Mode & Avg Watts & Monthly kWh & Cost (COP) \\ \midrule
+24/7 Active & 18W & 12.96 & \$2,760 \\
+16h/Day & 18W & 8.64 & \$1,840 \\
+Extreme Idle & 8W & 5.76 & \$1,227 \\ \bottomrule
+\end{tabular}
+\end{table}
+
+\section{The "Pro" Stack vs. The Amateur}
+To ensure this project meets professional industry standards, we mapped our choices against "Hardcore Purist" and "Amateur" targets:
+
+\begin{longtable}{@{}llll@{}}
+\caption{Infrastructure Comparison Table} \\ \toprule
+Layer & Professional (JKeep) & Amateur & Purist Perspective \\ \midrule
+\textbf{OS} & Debian Stable & Windows 10 & "Minimal or nothing." \\
+\textbf{Filesystem} & ZFS & NTFS/ext4 & "ZFS with ECC RAM." \\
+\textbf{Access} & Tailscale (WireGuard) & TeamViewer & "SSH Tunnel only." \\
+\textbf{Containers} & Docker Compose & Manual Install & "Podman (Rootless)." \\ \bottomrule
+\end{longtable}
+
+\section{Kernel Optimization Strategy}
+During the installation, we opted for the \texttt{generic} kernel over the \texttt{targeted} one.
+\begin{itemize}
+    \item \textbf{Reasoning:} The generic kernel includes drivers for a wider range of hardware. If the Asus motherboard fails, the SSD can be moved to another machine and boot immediately (Hardware Portability).
+\end{itemize}
+
+\begin{techwarning}{Non-Free Firmware}
+Debian is strictly open-source, but hardware often is not. We enabled the \texttt{non-free-firmware} repository to ensure the Atheros Wi-Fi and Intel microcode were correctly loaded for stability and security patches.
+\end{techwarning}
+
+\chapter{Security \& Data Integrity Theory}
+
+\section{The Zero Trust Architecture}
+In a professional environment, security is no longer about "walls" but about "identity." Traditional networking relies on opening ports in a firewall—a practice that leaves a server exposed to automated brute-force attacks within minutes. Project JKeep adopts a \textbf{Zero Trust} model.
+
+\begin{conceptbox}{Zero Trust Networking}
+Zero Trust assumes that the local network is potentially compromised. Instead of trusting any device on the LAN, every connection must be authenticated and encrypted. We implement this using \textbf{Tailscale}, a mesh VPN based on the \textbf{WireGuard} protocol. 
+\end{conceptbox}
+
+By utilizing Tailscale, the JKeep server has zero open ports on the public internet. It establishes an outbound encrypted tunnel to a private "Tailnet," allowing access from authenticated devices only. This architectural choice is critical for home servers that lack the enterprise-grade hardware firewalls found in data centers.
+
+\section{Data Integrity: The "Self-Healing" Filesystem}
+Standard filesystems like NTFS or ext4 are "blind" when data corruption occurs. If a bit flips on a physical platter (bit-rot), these systems will serve the corrupted data without notice, leading to database crashes or corrupted media files. 
+
+\begin{conceptbox}{Bit-Rot and Checksumming}
+ZFS (Zettabyte File System) utilizes end-to-end checksumming. Every time data is written, a mathematical hash is stored. When the data is read, ZFS re-calculates the hash; if it doesn't match, it identifies the corruption. In a mirrored setup, it would automatically repair the bit from the healthy copy.
+\end{conceptbox}
+
+\section{The 3-2-1-1-0 Backup Rule}
+Professional data management follows a strict hierarchy of redundancy to survive even catastrophic hardware failures or ransomware attacks:
+\begin{itemize}
+    \item \textbf{3} copies of data (Original + 2 Backups).
+    \item \textbf{2} different media types (e.g., SSD for OS, HDD for backup).
+    \item \textbf{1} copy off-site (Cloud storage like Backblaze or Google Drive).
+    \item \textbf{1} copy offline/immutable (Protected against network-based ransomware).
+    \item \textbf{0} errors (Verified via automated restoration tests).
+\end{itemize}
+
+\chapter{OS Deployment \& Initial Hardening}
+
+\section{The Installation Phase}
+The deployment utilized the \textbf{Debian 13 (Trixie)} Network Installer. This allowed for a hyper-minimal footprint, as the installer only pulls packages necessary for a headless environment, reducing the attack surface.
+
+\subsection{Partitioning Strategy}
+We implemented a \textbf{Manual Partitioning} scheme on the 1TB SSD to ensure the "Operating Plane" (Root) and "Data Plane" (Home) remained independent. This prevents a runaway log file from filling the disk and crashing the system.
+\begin{enumerate}
+    \item \textbf{ESP (1GB):} EFI System Partition for modern UEFI booting.
+    \item \textbf{Root (/) (32.9GB):} The "Engine Room" where the OS binaries reside.
+    \item \textbf{Swap (8.5GB):} Sized to match the physical RAM for efficient memory swapping.
+    \item \textbf{Home (/home) (437.7GB):} The persistent data layer for user configurations.
+\end{enumerate}
+
+\section{Post-Install Hardening: The Sudoers Lockout}
+A common hurdle in professional Debian installs is the handling of the \texttt{sudo} group. If a root password is provided during the installation, the first user account is \textbf{not} granted administrative privileges by default.
+
+\begin{techwarning}{The Sudoers Lockout}
+Attempting to run \texttt{sudo apt update} immediately after installation results in: \textit{"juanfe is not in the sudoers file. This incident will be reported."}
+\textbf{The Correct Path:}
+1. Switch to root: \texttt{su -}
+2. Install sudo: \texttt{apt install sudo}
+3. Add user: \texttt{usermod -aG sudo juanfe}
+4. Refresh: Log out and log back in.
+\end{techwarning}
+
+\section{Headless Optimization: GUI Neutralization}
+To ensure maximum RAM availability for the PostgreSQL database, we removed the graphical display manager entirely.
+
+\begin{itemize}
+    \item \textbf{Purge Command:} \texttt{apt purge gdm3 gnome-shell task-desktop}
+    \item \textbf{Text-Mode Enforced:} \texttt{systemctl set-default multi-user.target}
+\end{itemize}
+
+\begin{techwarning}{The Blinking Cursor Deadlock}
+Running the purge command while inside a graphical session causes the screen to freeze. This is not a crash, but the loss of the display manager.
+\textbf{The Solution:} Use \texttt{Ctrl+Alt+F2} to switch to a TTY console and finish the cleanup via \texttt{apt autoremove --purge}.
+\end{techwarning}
+
+\section{Energy Efficiency: Lid and Screen Persistence}
+For a 24/7 NAS, we must override the laptop's default "Sleep on Lid Close" behavior.
+
+\begin{lstlisting}[language=bash]
+# Masking sleep targets to keep the 'brain' awake
+systemctl mask sleep.target suspend.target hibernate.target
+\end{lstlisting}
+
+To prevent screen burn and save energy, we implemented \textbf{Console Blanking} by adding \texttt{consoleblank=60} to the GRUB configuration. This ensures the physical screen turns off after 60 seconds of inactivity while the server continues to handle remote requests.
+
+\chapter{Storage Engineering: The ZFS Engine}
+
+\section{Initialization and The "Flagship" Pool}
+The core of Project JKeep's data resilience is the \textbf{ZFS (Zettabyte File System)} pool. Initializing ZFS on a legacy laptop with a mechanical HDD via USB 3.0 presents unique challenges, primarily regarding hardware "handshakes" and partition alignment.
+
+\begin{techwarning}{The "64M" and "Device Busy" Deadlock}
+During the first attempt to create the pool \texttt{tank}, the kernel threw a cryptic error: \textit{"zfs: invalid for parameter 'zfs\_arc\_max'"}. Furthermore, the ZFS utility reported the 1TB drive as having "less than 64MB" of space. 
+\textbf{The Root Cause:} The drive contained a legacy \texttt{ext4} partition table that "locked" the sectors ZFS needed for its own labels.
+\textbf{The Resolution:} A low-level header wipe was required to neutralize the disk.
+\begin{lstlisting}[language=bash]
+dd if=/dev/zero of=/dev/sdb bs=1M count=100  # Wipe first 100MB
+partprobe /dev/sdb                          # Force kernel update
+zpool create -f -o ashift=12 tank [DEVICE_ID]
+\end{lstlisting}
+The \texttt{ashift=12} flag is critical, as it aligns ZFS blocks with the 4K sector size of modern high-capacity HDDs, preventing a massive performance degradation known as "Write Amplification."
+\end{techwarning}
+
+\section{Pool Management and the "Identity" Crisis}
+A significant learning moment occurred when the pool was successfully imported but appeared under the name \texttt{storage\_pool} instead of the documented \texttt{tank}. ZFS stores pool metadata on the disks themselves, meaning the name is "sticky."
+
+\begin{techwarning}{Renaming Pools on Import}
+To align the hardware with the project's "Infrastructure as Code" documentation, we performed a renamed import:
+\begin{lstlisting}[language=bash]
+zpool export storage_pool              # Safely detach the pool
+zpool import storage_pool tank         # Re-attach with the target name
+\end{lstlisting}
+\end{techwarning}
+
+\section{Persistence in Headless Environments}
+On a headless server, storage must be available immediately upon boot without manual intervention. We achieved this by generating a \texttt{zpool.cache} file and embedding it into the Initial RAM Disk (\texttt{initrd}).
+
+\chapter{Filesystem Optimization \& Data Protection}
+
+\section{Performance Tuning for Mechanical Media}
+Mechanical HDDs are the bottleneck of any NAS. To mitigate the latency of the TOSHIBA 1TB drive, we applied several "Flagship" optimizations:
+
+\begin{itemize}
+    \item \textbf{LZ4 Compression:} \texttt{zfs set compression=lz4 tank/jkeep}. By compressing data in RAM before it hits the slow USB bus, we effectively increase the perceived write speed while saving space.
+    \item \textbf{Atime Disable:} \texttt{zfs set atime=off tank/jkeep}. This prevents the HDD from performing a "write" operation every time a file is "read," significantly reducing mechanical wear and tear.
+\end{itemize}
+
+\section{Memory Management: ARC Tuning}
+ZFS defaults to using 50\% of system RAM for its Adaptive Replacement Cache (ARC). On an 8GB laptop also running Docker, this can lead to "Memory Pressure" and OOM (Out Of Memory) kills.
+
+\begin{conceptbox}{ARC (Adaptive Replacement Cache)}
+The ARC is a "Smart Cache" that predicts which data will be needed next based on frequency and recency. We capped the ARC at 4GB to ensure the PostgreSQL database always has a guaranteed 4GB of RAM available for its own operations.
+\end{conceptbox}
+
+\section{Automated Protection: Sanoid Snapshots}
+To survive accidental deletions or data corruption, we implemented \textbf{Sanoid}. This utility automates the creation and pruning of ZFS snapshots.
+
+\begin{itemize}
+    \item \textbf{Policy:} Hourly snapshots kept for 36 hours, Daily for 30 days.
+    \item \textbf{Verification:} \texttt{zfs list -t snapshot}.
+\end{itemize}
+
+\begin{techwarning}{The Partition Table CRC Mismatch}
+During a troubleshooting phase, the pool became unimportable due to a "CRC Mismatch" in the primary GPT header. 
+\textbf{The Solution:} We used \texttt{gdisk} to recover the "Main" header from the "Backup" header stored at the end of the disk. This highlighted the importance of ZFS's redundant labeling—labels are stored at both the beginning and end of the drive.
+\end{techwarning}
+
+\chapter{Container Orchestration: The Docker Layer}
+
+\section{The Philosophy of Containerization}
+In a professional DevOps environment, applications are not installed directly onto the host OS. Instead, they are "Containerized." 
+
+\begin{conceptbox}{Docker as a Shipping Container}
+Imagine a cargo ship. Before standard containers, loading loose sacks of flour and barrels of oil was a nightmare. If the oil leaked, it ruined the flour. Docker containers act as standardized boxes. The "Slave" node (Asus) is the ship, and the applications (PostgreSQL, Jellyfin) are the containers. They share the ship's engine (Linux Kernel) but remain isolated from each other.
+\end{conceptbox}
+
+\section{Docker-ZFS Integration}
+A key architectural decision was the mapping of Docker volumes to ZFS datasets. This ensures that the ephemeral nature of a container does not risk the persistent nature of the data.
+\begin{itemize}
+    \item \textbf{Host Path:} \texttt{/tank/jkeep/docker/postgres\_data}
+    \item \textbf{Container Path:} \texttt{/var/lib/postgresql/data}
+\end{itemize}
+By mapping these paths, the PostgreSQL database benefits from ZFS's LZ4 compression and automated snapshots without the container even being aware of the underlying filesystem.
+
+\section{Remote Development with VS Code}
+Managing a headless server is traditionally done via SSH in a terminal. However, Project JKeep leverages the \textbf{VS Code Remote SSH} extension. 
+\textbf{High-Level:} Your Mac acts as the "Screen," and the Asus acts as the "Brain."
+\textbf{Low-Level:} VS Code installs a small "Server" component on the Debian node, allowing for real-time file editing, integrated terminal access, and extension support directly on the server's hardware.
+
+\chapter{Database Management \& Service Isolation}
+
+\section{SQL vs. NoSQL: The Relational Choice}
+For the "alCampo" and "JKeep" initiatives, we selected \textbf{PostgreSQL} (Relational) over NoSQL alternatives like MongoDB.
+\begin{itemize}
+    \item \textbf{Structured Logic:} In a project involving products, users, and transactions, the relationships are "strict." SQL enforces these relationships, ensuring that a "Price" cannot exist without a "Product."
+    \item \textbf{ACID Compliance:} Atomicity, Consistency, Isolation, and Durability. PostgreSQL guarantees that even if the power fails in Pereira, the database remains in a consistent state.
+\end{itemize}
+
+\section{PostgreSQL Internal Architecture}
+PostgreSQL does not store data in human-readable files. It uses a complex binary structure optimized for speed.
+\begin{itemize}
+    \item \textbf{WAL (Write Ahead Logs):} Every transaction is logged to a journal before being written to the actual table. This is the ultimate defense against corruption during a power failure.
+    \item \textbf{Segments:} Data is broken into 1GB binary segments.
+\end{itemize}
+
+\section{The Professional Hybrid Model}
+We implemented a hybrid storage strategy:
+\begin{enumerate}
+    \item \textbf{Metadata (SQL):} Descriptions, prices, and user IDs are stored in the relational database.
+    \item \textbf{Blobs (ZFS Files):} Large files like pixel art, videos, and images are stored as raw files in \texttt{/tank/media}.
+    \item \textbf{The Link:} The database contains a column with the file path (\texttt{/tank/media/photo.png}), bridging the two layers.
+\end{enumerate}
+
+\begin{techwarning}{The Samba Security Gap}
+While we use Samba (SMB) to "drag and drop" files from a Mac Finder, the \texttt{tank/db} folder is \textbf{never} shared. 
+\textbf{The Risk:} Accessing "live" database files via a network share can cause binary locks and corruption. Only the Docker container should have access to the raw DB files.
+\end{techwarning}
+
+\chapter{The Media Cloud: Jellyfin Deployment}
+
+\section{The "Home YouTube" Experience}
+Jellyfin was selected as the flagship media service to host family videos and marketing assets. Unlike proprietary services, Jellyfin provides a visual, poster-based interface without data mining or subscription fees.
+
+\section{Hardware-Accelerated Transcoding}
+A critical challenge with using an Asus X441U is its limited CPU power. When streaming a high-resolution video to a phone with slow mobile data, the server must "shrink" (transcode) the video. 
+
+\begin{conceptbox}{Intel QuickSync (QSV)}
+We leveraged the Intel Integrated Graphics (iGPU) via \texttt{/dev/dri}. By passing this device into the Docker container, the hardware handles the video mathematics, leaving the CPU free for other tasks.
+\end{conceptbox}
+
+\section{Security \& Isolation}
+The Jellyfin container is mounted with the \texttt{:ro} (Read-Only) flag on the media volumes. This prevents any exploit in the media player from being used to delete or modify the original family archives on the ZFS pool.
+
+\chapter{Remote Ecosystem \& Final Hardening}
+
+\section{Samba (SMB): Finder Integration}
+To bridge the gap between a Mac workstation and a Linux server, we implemented \textbf{Samba}. This allows the server to appear in the macOS Finder as a network drive.
+
+\begin{itemize}
+    \item \textbf{The Unified Root:} Instead of sharing individual folders, we share the root \texttt{/tank}. This provides a single entry point for Projects, Media, and Backups, preventing "Ghost Drive" clutter on the Mac desktop.
+\end{itemize}
+
+\section{Lifecycle Automation: Zsh Functions}
+To manage the server efficiently from a Mac, we created a suite of custom Zsh functions:
+\begin{enumerate}
+    \item \texttt{wake-server}: Sends a "Magic Packet" (WoL) to the Asus motherboard.
+    \item \texttt{open-server}: Establishes a passwordless SSH tunnel via Tailscale.
+    \item \texttt{sleep-server}: Remotely triggers a graceful shutdown.
+\end{enumerate}
+
+\section{Conclusion: The Professional Headless State}
+Project JKeep successfully transformed a consumer laptop into an enterprise-grade node. By combining \textbf{ZFS integrity}, \textbf{Docker orchestration}, and \textbf{Zero Trust networking}, we have created a platform that is secure, resilient, and ready for high-level software development.
+
+\chapter{Client Integration \& Multi-Modal Access}
+
+\section{The Tailscale Tunnel: The Infinite LAN}
+The foundation of our remote access is the \textbf{Tailscale} mesh VPN. Regardless of whether the Mac is on the same Wi-Fi as the server or on a public network across the world, the server is always accessible via its fixed Tailnet IP (e.g., \texttt{100.x.y.z}). This creates an "Infinite LAN" where services are always a single hop away without the need for complex port forwarding.
+
+\section{Terminal Access: SSH and Automation}
+Native terminal access is achieved via \textbf{SSH (Secure Shell)}. By generating an RSA key pair on the Mac and authorizing it on the server, we eliminated the need for manual password entry. 
+\begin{itemize}
+    \item \textbf{Primary Command:} \texttt{ssh juanfe@100.x.y.z}
+    \item \textbf{Automation:} Using the custom \texttt{open-server} Zsh function allows for instant connectivity with a single command.
+\end{itemize}
+
+\section{Integrated Development: VS Code Remote}
+For coding and configuration, we utilize the \textbf{VS Code Remote SSH} extension. This allows the Mac to act as a "Thin Client." The user interface runs locally on macOS, while the actual file system, terminal, and language compilers (Python, C++) run directly on the Asus server hardware. This prevents local Mac resources from being consumed by heavy server tasks.
+
+\section{File System Integration: Samba \& Finder}
+To manage files with the ease of a local drive, we utilize \textbf{Samba (SMB)}.
+\begin{itemize}
+    \item \textbf{Mounting:} In Finder, the user connects to \texttt{smb://100.x.y.z}.
+    \item \textbf{The "SlaveServer" Volume:} This unified mount allows for "Drag and Drop" between the Mac and the ZFS pool.
+    \item \textbf{Workflow:} A video can be edited on the Mac and dropped directly into the \texttt{/tank/media} folder, where Jellyfin immediately detects it.
+\end{itemize}
+
+\section{Media & Surveillance Access}
+Finally, high-level service access is achieved through dedicated client applications:
+\begin{enumerate}
+    \item \textbf{Jellyfin Media Player (Mac):} Provides a high-fidelity cinematic experience without the limitations of a web browser.
+    \item \textbf{Termius (Mobile):} Used for emergency monitoring and server health checks from an iPhone.
+    \item \textbf{Web UI:} Accessing administrative dashboards via \texttt{http://100.x.y.z:8096}.
+\end{enumerate}
+
+\end{document}
